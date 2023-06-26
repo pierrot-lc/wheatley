@@ -258,6 +258,7 @@ class PPO:
         self.optimizer = self.optimizer_class(
             agent.parameters(),
             lr=lr,
+            # weight_decay=1e-4,
         )
         if opt_state_dict is not None:
             self.optimizer.load_state_dict(opt_state_dict)

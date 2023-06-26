@@ -145,9 +145,37 @@ def benchmark_dgl_hyperparams(args, n_tries: int):
             log_hyperparams(sampled, Path(path) / "hyperparams.json")
 
 
+def benchmark_fixed_size_generalization(args):
+    for env_size in tqdm([15, 20], desc="BENCHMARKING DGL FIXED SIZE GENERALIZATION"):
+        args = deepcopy(args)
+
+        # We do not change the seed, so that the validation set is the same across
+        # all experiments.
+        # setattr(args, "seed", seed)
+
+        # Set specific args.
+        setattr(args, "exp_name_appendix", "dgl-fixed-size-generalization")
+        setattr(args, "n_j", env_size)
+        setattr(args, "n_m", env_size)
+        setattr(args, "max_n_j", max(args.n_j, args.max_n_j))
+        setattr(args, "max_n_m", max(args.n_m, args.max_n_m))
+
+        exp_name = get_exp_name(args)
+        path = get_path(args.path, exp_name)
+
+        # Disable visdom to avoid spamming the server.
+        setattr(args, "disable_visdom", False)
+
+        try:
+            main(args, exp_name, path)
+        except OutOfMemoryError:
+            print("Out of memory, skipping.")
+
+
 if __name__ == "__main__":
     from args import args
 
     # benchmark_seed(args, 10)
     # benchmark_single_experiment_generalisation(args, 10)
-    benchmark_dgl_hyperparams(args, 1000)
+    # benchmark_dgl_hyperparams(args, 100)
+    benchmark_fixed_size_generalization(args)
