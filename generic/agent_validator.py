@@ -275,9 +275,9 @@ class AgentValidator:
         else:
             problem = self.validation_envs[i].state
 
-        previous_ortools_solution = self._ortools_read_solution(save_path, problem)
-        if previous_ortools_solution is not None:
-            return previous_ortools_solution
+        # previous_ortools_solution = self._ortools_read_solution(save_path, problem)
+        # if previous_ortools_solution is not None:
+        #     return previous_ortools_solution
 
         if self.psp:
             makespan, schedule, optimal = get_ortools_makespan_psp(
@@ -421,47 +421,47 @@ class AgentValidator:
             print("...done")
 
         for i in tqdm.tqdm(range(self.n_validation_env), desc="   evaluating         "):
-            if self.batch_size == 0:
-                obs, info = self.validation_envs[i].reset(soft=self.fixed_validation)
-                done = False
-                while not done:
-                    action_masks = decode_mask(info["mask"])
-                    obs = agent.obs_as_tensor_add_batch_dim(obs)
-                    action = agent.predict(
-                        obs, deterministic=True, action_masks=action_masks
-                    )
-                    obs, reward, done, _, info = self.validation_envs[i].step(
-                        action.long().item()
-                    )
-            solution = self.validation_envs[i].get_solution()
-            if solution is not None:
-                schedule = solution.schedule
-                makespan = solution.get_makespan()
-
-                if i == 0:
-                    self.gantt_rl_img = self.validation_envs[i].render_solution(
-                        schedule
-                    )
-
-                if makespan < self.best_makespan_wheatley[i]:
-                    self.best_makespan_wheatley[i] = makespan
-                    self.save_csv(
-                        f"wheatley_{i}",
-                        makespan,
-                        "unknown",
-                        schedule,
-                        self.validation_envs[i].sampled_jobs,
-                    )
-
-                self.last_ppo_makespans[i] = makespan
-
-                mean_makespan += makespan / self.n_validation_env
-            else:
-                schedule = None
-                state = self.validation_envs[i].state
-                self.last_ppo_makespans[i] = state.undoable_makespan
-                mean_makespan += state.undoable_makespan / self.n_validation_env
-                self.gantt_rl_img = self.validation_envs[i].render_fail()
+            # if self.batch_size == 0:
+            #     obs, info = self.validation_envs[i].reset(soft=self.fixed_validation)
+            #     done = False
+            #     while not done:
+            #         action_masks = decode_mask(info["mask"])
+            #         obs = agent.obs_as_tensor_add_batch_dim(obs)
+            #         action = agent.predict(
+            #             obs, deterministic=True, action_masks=action_masks
+            #         )
+            #         obs, reward, done, _, info = self.validation_envs[i].step(
+            #             action.long().item()
+            #         )
+            # solution = self.validation_envs[i].get_solution()
+            # if solution is not None:
+            #     schedule = solution.schedule
+            #     makespan = solution.get_makespan()
+            #
+            #     if i == 0:
+            #         self.gantt_rl_img = self.validation_envs[i].render_solution(
+            #             schedule
+            #         )
+            #
+            #     if makespan < self.best_makespan_wheatley[i]:
+            #         self.best_makespan_wheatley[i] = makespan
+            #         self.save_csv(
+            #             f"wheatley_{i}",
+            #             makespan,
+            #             "unknown",
+            #             schedule,
+            #             self.validation_envs[i].sampled_jobs,
+            #         )
+            #
+            #     self.last_ppo_makespans[i] = makespan
+            #
+            #     mean_makespan += makespan / self.n_validation_env
+            # else:
+            #     schedule = None
+            #     state = self.validation_envs[i].state
+            #     self.last_ppo_makespans[i] = state.undoable_makespan
+            #     mean_makespan += state.undoable_makespan / self.n_validation_env
+            #     self.gantt_rl_img = self.validation_envs[i].render_fail()
 
             for ortools_strategy in self.ortools_strategies:
                 if self.fixed_validation:

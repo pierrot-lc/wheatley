@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import numpy as np
 import torch
 
 from generic.agent_specification import AgentSpecification
@@ -16,7 +17,7 @@ from jssp.env.state import State
 from jssp.models.agent import Agent
 
 
-def load_agent(args: argparse.Namespace, path: str) -> Agent:
+def load_agent(args: argparse.Namespace) -> Agent:
     env_specification = EnvSpecification(
         max_n_jobs=args.max_n_j,
         max_n_machines=args.max_n_m,
@@ -72,9 +73,7 @@ def load_agent(args: argparse.Namespace, path: str) -> Agent:
         no_tct=args.no_tct,
         mid_in_edges=args.mid_in_edges,
     )
-    agent = Agent.load(path)
-    agent.env_specification = env_specification
-    agent.agent_specification = agent_specification
+    agent = Agent(env_specification, agent_specification=agent_specification)
     agent.to(agent_specification.device)
     return agent
 
@@ -196,25 +195,44 @@ def eval_on_instances(agent: Agent, instances: dict, args: argparse.Namespace) -
 
         args.n_validation_env = len(validation_envs)
         validator = load_validator(n_j, n_m, agent, args, validation_envs)
-        validator._evaluate_agent(agent)
 
         perfs[f"{n_j}x{n_m}"] = {
-            "PPO": validator.makespans[-1],
-            "Random": validator.random_makespans[-1],
+            f"OR-Tools - {ortools_strategies}": float(np.mean([v[0] for v in values]))
+            for ortools_strategies, values in validator.fixed_ortools.items()
         }
-        for ortools_strategies, values in validator.ortools_makespans.items():
-            perfs[f"{n_j}x{n_m}"][f"OR-Tools - {ortools_strategies}"] = (
-                values[-1].cpu().item()
-            )
-        for custom_agent in validator.custom_agents:
-            perfs[f"{n_j}x{n_m}"][custom_agent.rule] = validator.custom_makespans[
-                custom_agent.rule
-            ][-1]
+        print(perfs[f"{n_j}x{n_m}"])
+        # validator._evaluate_agent(agent)
+
+        #     # "PPO": validator.makespans[-1],
+        #     "Random": validator.random_makespans[-1],
+        # }
+        # for ortools_strategies, values in validator.ortools_makespans.items():
+        #     perfs[f"{n_j}x{n_m}"][f"OR-Tools - {ortools_strategies}"] = (
+        #         values[-1].cpu().item()
+        #     )
+        # for custom_agent in validator.custom_agents:
+        #     perfs[f"{n_j}x{n_m}"][custom_agent.rule] = validator.custom_makespans[
+        #         custom_agent.rule
+        #     ][-1]
 
     return perfs
 
 
 def list_instances(root_dir: Path) -> Dict[Tuple[int, int], List[Path]]:
+    valid_instances = [
+        (6, 6),
+        (10, 10),
+        (15, 15),
+        (20, 15),
+        (20, 20),
+        (30, 10),
+        (30, 15),
+        (30, 20),
+        (50, 15),
+        (50, 20),
+        (60, 10),
+        (100, 20),
+    ]
     instances = dict()
     for instance_dir in root_dir.iterdir():
         if not instance_dir.is_dir():
@@ -228,7 +246,9 @@ def list_instances(root_dir: Path) -> Dict[Tuple[int, int], List[Path]]:
             subdir_instances.append(instance_name)
 
         n_j, n_m = instance_dir.name.split("x")
-        instances[(int(n_j), int(n_m))] = subdir_instances
+        n_j, n_m = int(n_j), int(n_m)
+        if (n_j, n_m) in valid_instances:
+            instances[(int(n_j), int(n_m))] = subdir_instances
 
     return instances
 
@@ -236,7 +256,7 @@ def list_instances(root_dir: Path) -> Dict[Tuple[int, int], List[Path]]:
 def save_perfs(perfs: dict, path: str):
     if not path.endswith("/"):
         path += "/"
-    filename = path + "eval.json"
+    filename = path + "ortools-eval.json"
 
     with open(filename, "w") as f:
         json.dump(perfs, f)
@@ -252,9 +272,9 @@ if __name__ == "__main__":
 
     instances = list_instances(Path(f"./instances/jssp/{args.duration_type}"))
 
-    agent = load_agent(args, args.path)
+    agent = load_agent(args)
     perfs = eval_on_instances(agent, instances, args)
-    save_perfs(perfs, args.path)
+    save_perfs(perfs, "./")
 
     for instance_size, instance_perfs in perfs.items():
         print(f"\n{instance_size} instances:")
